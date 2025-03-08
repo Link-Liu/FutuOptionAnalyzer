@@ -10,8 +10,8 @@ def get_code_list(num, code, start, end):
     :return: 股票代码列表
     """
     quote_ctx = OpenQuoteContext(host='127.0.0.1', port=11111)
-    ret2, data2 = quote_ctx.get_option_chain(code, start, end)
-    code = []
+    ret2, data2 = quote_ctx.get_option_chain(code = code, start = start, end = end)
+    codes = []
     if ret2 == RET_OK:
         for i in range(num):
             data2['code'][i]
@@ -19,7 +19,8 @@ def get_code_list(num, code, start, end):
         print('error:', data2)
     time.sleep(2)
     quote_ctx.close() # 结束后记得关闭当条连接，防止连接条数用尽
-    return code
+    print(codes)
+    return codes
 
 def get_option_greeks(code):
     """
@@ -68,6 +69,4 @@ def save_json(filename, num, code, start, end):
 
 
 if __name__ == "__main__":
-    # 传入股票代码"HK.00700"
-    get_option_greeks("HK.00700")
-    save_json("option_greeks.json",20, "HK.00700", "2021-01-01", "2021-01-31")
+    get_code_list(20, 'US.NVDA', '2025-03-14', '2025-04-17')
