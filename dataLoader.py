@@ -14,7 +14,7 @@ def get_code_list(num, code, start, end):
     codes = []
     if ret2 == RET_OK:
         for i in range(num):
-            data2['code'][i]
+            codes.append.data2['code'][i]
     else:
         print('error:', data2)
     time.sleep(2)
@@ -70,3 +70,4 @@ def save_json(filename, num, code, start, end):
 
 if __name__ == "__main__":
     get_code_list(20, 'US.NVDA', '2025-03-14', '2025-04-17')
+    save_json("data.json", 20, 'US.NVDA', '2025-03-14', '2025-04-17')
