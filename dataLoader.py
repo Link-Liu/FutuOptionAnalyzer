@@ -1,32 +1,39 @@
 import json
-from futu import OpenQuoteContext, RET_OK
+from futu import OpenQuoteContext, SubType, RET_OK
 
-
-# 接受两个参数：stock_code（股票代码）和 strike_price（行权价格）
-def get_option_greeks(stock_code, strike_price):
-    # 创建OpenQuoteContext对象，与富途行情服务器建立连接
-    # host='127.0.0.1'表示服务器运行在本地，port=11111是默认端口
+def get_option_greeks(code):
+    """
+    获取期权的希腊字母  'TODO'
+    :param code: 期权代码 'US.NVDA'
+    :return: TODO
+    """
     quote_ctx = OpenQuoteContext(host='127.0.0.1', port=11111)
-    # 返回值ret表示请求状态，option_chain是返回的期权数据
-    ret, option_chain = quote_ctx.get_option_chain(stock_code)
-    if ret == RET_OK:
-        data_list = []
-        for item in option_chain:
-            if item['strike_price'] == strike_price:
-                greeks = {
-                    "symbol": item['stock_code'], # 期权的股票代码
-                    "implied_volatility": item['implied_volatility'], # 引申波幅
-                    "delta": item['delta'], # Delta值
-                    "theta": item['theta'], # Theta值
-                    "rho": item['rho'], # Rho值
-                    "underlying_price": item['owner_stock_price'], # 正股价格
-                    "expiration_date": item['expiry_date']  # 期权到期时间
-                }
-                data_list.append(greeks)
-        with open("option_data.json", "w", encoding="utf-8") as f:
-            json.dump(data_list, f, ensure_ascii=False, indent=4)
-    quote_ctx.close()
+
+    ret_sub, err_message = quote_ctx.subscribe([code], [SubType.QUOTE], subscribe_push=False) # 是否订阅
+    # 先订阅 K 线类型。订阅成功后 OpenD 将持续收到服务器的推送，False 代表暂时不需要推送给脚本
+    if ret_sub == RET_OK:  # 订阅成功
+        ret, data = quote_ctx.get_stock_quote([code])  # 获取订阅股票报价的实时数据
+        if ret == RET_OK:
+            all_codes = data['code'].values.tolist() # 股票代码
+            all_sigma = data['implied_volatility'].values.tolist()  # 引申波幅
+            all_delta = data['delta'].values.tolist() # Delta
+            all_theta = data['theta'].values.tolist() # Theta
+            all_rho = data['rho'].values.tolist() # Rho
+            all_s = data['last_price'].values.tolist() # 正股价 / 最新价格
+            all_strike_price = data['strike_price'].values.tolist() # 行权价
+            print("所有股票代码：", all_codes)
+            print("所有引申波幅：", all_sigma)
+            print("所有delta:", all_delta)
+            print("所有theta:", all_theta)
+            print("所有rho:", all_rho)
+            print("所有正股价:", all_s)
+            print("所有行权价:", all_strike_price)
+        else:
+            print('error:', data)
+    else:
+        print('subscription failed', err_message)
+    quote_ctx.close()  # 关闭当条连接，OpenD 会在1分钟后自动取消相应股票相应类型的订阅
 
 if __name__ == "__main__":
-    # 传入股票代码"HK.00700"和行权价格400
-    get_option_greeks("HK.00700", 400)
+    # 传入股票代码"HK.00700"
+    get_option_greeks("HK.00700")
