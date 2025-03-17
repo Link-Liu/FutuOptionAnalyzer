@@ -2,40 +2,49 @@ from math import log, sqrt, exp
 from scipy.stats import norm
 from datetime import datetime
 
-def compCO(S, L, sigma, t, r = 0.042197):
+
+def compCO(S, L, sigma, t, t_assume, r=0.042197):
     """"
-    S: 当前股票价格/ 正股价格
+    S: 正股价格
     L: 行权价格
     r: 无风险利率， 默认4.2197%
-    t: 期权到期时间
-    T: 期权到期时间， 到期日 (t) - 当前日期
+    t: 期权到期时间 (can be datetime or string)
+    t_assume: 计算日期
+    T: 期权到期时间， 到期日 (t) - 假定日期
     sigma: 波动率
     """
-    T = (t - datetime.now()).days / 365.0
+    if isinstance(t, str):
+        t1 = datetime.strptime(t, '(%Y, %m, %d)')
+    else:  # Assume t is a datetime object
+        t1 = t
+    T = (t1 - t_assume).days / 365.0
     d1 = (log(S / L) + (r + 0.5 * sigma ** 2) * T) / (sigma * sqrt(T))
     d2 = d1 - sigma * sqrt(T)
-
     C = S * norm.cdf(d1) - L * exp(-r * T) * norm.cdf(d2)
     return C
 
-def compPO(S, L, sigma, t, r = 0.042197):
+def compPO(S, L, sigma, t, t_assume, r=0.042197):
     """"
-    S: 当前股票价格/ 正股价格
-    L: 行权价格 / 执行价格
+    S: 正股价格
+    L: 行权价格
     r: 无风险利率， 默认4.2197%
-    t: 期权到期时间
-    T: 期权到期时间， 到期日 (t) - 当前日期
+    t: 期权到期时间 (can be datetime or string)
+    t_assume: 计算日期
+    T: 期权到期时间， 到期日 (t) - 假定日期
     sigma: 波动率
     """
-    T = (t - datetime.now()).days / 365.0
+    if isinstance(t, str):
+        t1 = datetime.strptime(t, '(%Y, %m, %d)')
+    else:  # Assume t is a datetime object
+        t1 = t
+    T = (t1 - t_assume).days / 365.0
     d1 = (log(S / L) + (r + 0.5 * sigma ** 2) * T) / (sigma * sqrt(T))
     d2 = d1 - sigma * sqrt(T)
-
     P = L * exp(-r * T) * norm.cdf(-d2) - S * norm.cdf(-d1)
     return P
 
 
-def findXForGreaterSum(L, sigma, t, theta, c1, p1, r=0.042197, start=1.0, step=0.1,
+def findXForGreaterSum(LC, LP, sigmaC, sigmaP, tC, tP, t_assume, thetaC, thetaP, c1, p1, profit,ratio, r=0.042197, start=1.0, step=0.1,
                            max_iter=10000, precision=0.01, x_max_search=10000):
         """
         寻找两个交点 x,使得 compCO(x, L, sigma, t, r) + compPO(x, L, sigma, t, r) == c1 + p1
@@ -44,9 +53,12 @@ def findXForGreaterSum(L, sigma, t, theta, c1, p1, r=0.042197, start=1.0, step=0
              compCO(x) + compPO(x) > c1 + p1,
              返回 [x_lower, x_upper] 即中间区间为违背条件，否则返回 None
         参数:
+          S0:现在正股价
           L: 行权价格
           sigma: 年化波动率
-          t: 期权到期时间 (datetime 对象)
+          t_assume: 卖出时间(datetime 对象)
+          tC:call到期时间
+          tP:put到期时间
           c1: 给定的看涨期权价格
           p1: 给定的看跌期权价格
           r: 无风险利率, 默认 4.2197%
@@ -60,8 +72,9 @@ def findXForGreaterSum(L, sigma, t, theta, c1, p1, r=0.042197, start=1.0, step=0
         """
         # 定义目标函数 f(x) = compCO + compPO - (c1 + p1)
         def f(x):
-            T = (t - datetime.now()).days / 365.0
-            return compCO(x, L, sigma, t, r) + compPO(x, L, sigma, t, r) - (c1 + p1) - T*theta - 100
+            TC = (tC - t_assume).days / 365.0
+            TP = (tP - t_assume).days / 365.0
+            return compCO(x, LC, sigmaC, tC,t_assume, r) + compPO(x, LP, sigmaP, tP,t_assume, r) - (c1 + p1) + TC*thetaC +TP*thetaP - (profit/ratio)
 
         roots = []
         x_prev = start
@@ -90,11 +103,25 @@ def findXForGreaterSum(L, sigma, t, theta, c1, p1, r=0.042197, start=1.0, step=0
             x += step
             iterations += 1
 
-        # 若没有找到两个交点，则返回 None
-        if len(roots) != 2:
-            return None
-        return roots
+        return roots if roots else None
 
 if __name__ == '__main__':
-    result = findXForGreaterSum(100,0.7279,datetime(2025,3,9),-0.1578, compCO(112.06,120,0.6894,datetime(2025,3,14)), compPO(112.06,100,0.72793,datetime(2025,3,21)) ) # [100.0, 100.0]
+    S0 = float(input("Enter current stock price: "))
+    t_assume = datetime.strptime(input('Enter selling date(2025,12,31):'), '%Y,%m,%d')
+    profit = float(input('Enter profit:'))
+    ratio = float(input('Enter ratio:'))
+
+    LC = 140
+    LP = 120
+    sigmaC = 0.56
+    sigmaP = 0.62
+    thetaC = -0.0023
+    thetaP = -0.0074
+    tC = datetime(2025, 5, 2)
+    tP = datetime(2025, 5, 10)
+
+    result = findXForGreaterSum(LC, LP, sigmaC, sigmaP, tC, tP, t_assume, thetaC, thetaP,
+                               compCO(S0, LC, sigmaC, tC, datetime.now()),
+                               compPO(S0, LP, sigmaP, tP, datetime.now()),
+                               profit, ratio)
     print(result)

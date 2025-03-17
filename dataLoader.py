@@ -14,10 +14,10 @@ def get_code_list(num, code, start, end):
     codes = []
     if ret2 == RET_OK:
         for i in range(num):
-            codes.append.data2['code'][i]
+            codes.append(data2['code'][i])
     else:
         print('error:', data2)
-    time.sleep(2)
+    time.sleep(1)
     quote_ctx.close() # 结束后记得关闭当条连接，防止连接条数用尽
     print(codes)
     return codes
@@ -40,34 +40,39 @@ def get_option_greeks(code):
             all_delta = data['delta'].values # Delta
             all_theta = data['theta'].values # Theta
             all_rho = data['rho'].values # Rho
-            all_s = data['last_price'].values # 正股价 / 最新价格
             all_strike_price = data['strike_price'].values # 行权价
         else:
             print('error:', data)
     else:
         print('subscription failed', err_message)
     quote_ctx.close()  # 关闭当条连接，OpenD 会在1分钟后自动取消相应股票相应类型的订阅
-    return all_codes, all_sigma, all_delta, all_theta, all_rho, all_s, all_strike_price
+    return all_codes, all_sigma, all_delta, all_theta, all_rho, all_strike_price
+
 
 def save_json(filename, num, code, start, end):
-    codes = get_code_list(20, code, start, end)
+    codes = get_code_list(num, code, start, end)
+    data_list = []  # 收集所有条目到一个列表
     for code in codes:
-        all_codes, all_sigma, all_delta, all_theta, all_rho, all_s, all_strike_price = get_option_greeks(code)
-        data_entry = {  
+        all_codes, all_sigma, all_delta, all_theta, all_rho, all_strike_price = get_option_greeks(code)
+        data_entry = {
             "query_code": code,
             "all_codes": list(all_codes),
             "implied_volatility": list(all_sigma),
             "delta": list(all_delta),
             "theta": list(all_theta),
             "rho": list(all_rho),
-            "last_price": list(all_s),
             "strike_price": list(all_strike_price)
         }
-        with open(filename, "a", encoding="utf8") as f:
-            json.dump(data_entry, f, ensure_ascii=False, indent=4)
-            f.write("\n")
+        data_list.append(data_entry)  # 添加到列表
+
+    # 以写入模式（"w"）将整个列表保存为 JSON 数组
+    with open(filename, "w", encoding="utf8") as f:
+        json.dump(data_list, f, ensure_ascii=False, indent=4)
 
 
 if __name__ == "__main__":
-    get_code_list(20, 'US.NVDA', '2025-03-14', '2025-04-17')
-    save_json("data.json", 20, 'US.NVDA', '2025-03-14', '2025-04-17')
+    code=input('Input Code(US.NVDA):')
+    start=input('start date (2025-12-31):')
+    end=input('end date (2025-12-31):')
+    save_json("data.json", 100, code, start, end)
+
